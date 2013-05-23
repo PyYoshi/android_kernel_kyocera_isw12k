@@ -1,0 +1,29 @@
+2012.5.30 KYOCERA Corporation
+
+●ビルド手順
+1. Code Aurora Forum (CAF) よりBase環境をDownloadする。
+    https://www.codeaurora.org/
+
+    Manifest Fileは以下になります。
+    https://www.codeaurora.org/xwiki/bin/QAEP/
+    <Releases on ics_chocolate branch>
+    March 21, 2012   M7630AABBQMLZA404030I   msm7630   ics_chocolate   M7630AABBQMLZA404030I.xml
+
+    $ repo init -u git://codeaurora.org/platform/manifest.git -b ics_chocolate -m M7630AABBQMLZA404030I.xml --repo-url=git://codeaurora.org/tools/repo.git
+    $ repo sync
+
+        注）Download方法及び不明点の詳細はCAFをご参照ください。
+
+2. kernelフォルダを1.でDownloadした環境に上書きします。
+
+3. 環境変数PATHにJava Development Kit (JDK) のpathを追加します。
+    $ export PATH=<JDKのInstallPath>/bin:$PATH
+
+4. 下記Commandを実行します。
+    $ source build/envsetup.sh
+    $ choosecombo release msm7630_surf user
+    $ make clean && make BOARD_HAVE_BLUETOOTH:=true BOARD_RECOVERYIMAGE_PARTITION_SIZE=0x00A00000 -j8
+
+    Note:最後の"-j8"はBuild環境に合わせて変更ください。
+
+以上
