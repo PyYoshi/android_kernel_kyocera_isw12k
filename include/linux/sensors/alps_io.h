@@ -264,6 +264,7 @@ typedef struct {
 typedef struct {
   uint32_t m_iStatus;
   uint32_t m_iKind;
+  uint32_t m_iRideTime;
 }IoCtlAccGetVehicleInfo;
 
 #define ALPSIO_ACC_SET_PEDOM_CLEAR      _IOW(ALPSIO,25, int)

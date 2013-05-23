@@ -201,7 +201,7 @@ static void timed_vibrator_off(struct timed_output_dev *sdev)
 
 void registerCallbackFromAcc(int (*func)(int type, int pause_timer))
 {
-    g_AccSetPause = func;
+    g_AccSetPause = NULL;
 }
 
 static void vibrator_enable(struct timed_output_dev *dev, int value)

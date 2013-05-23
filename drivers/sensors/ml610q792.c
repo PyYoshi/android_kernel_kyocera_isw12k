@@ -71,7 +71,7 @@ int32_t dbg_level = DBG_LV_ALL;
 #define ACC_FW_VERSION_RECOVER_1     (0x07000090)
 #define ACC_FW_VERSION_RECOVER_2     (0x08000000)
 
-#define ACC_FW_VERSION_DATA          (0x08000090)
+#define ACC_FW_VERSION_DATA          (0x08000096)
 
 #define HOST_VER_PROG_MASK           (0x00000000)
 
@@ -284,6 +284,7 @@ struct pedometer {
 struct vehicle {
     int32_t usVehiStatus;
     int32_t usVehiKind;
+    int32_t usVehiRideTime;
 };
 
 struct move {
@@ -638,6 +639,7 @@ DBG_PRINT_IO(0, 0);
 DBG(DBG_LV_ERROR, "[ACC] FW Update or Recovery Now:%s\n", __FUNCTION__);
         arg_ipVehicle[0] = 0;
         arg_ipVehicle[1] = 0;
+        arg_ipVehicle[2] = 0;
         return 0;
     }
 
@@ -647,6 +649,7 @@ DBG(DBG_LV_ERROR, "[ACC] FW Update or Recovery Now:%s\n", __FUNCTION__);
         mutex_lock(&s_tDataMutex);
         arg_ipVehicle[0] = s_tLatestVehiData.usVehiStatus;
         arg_ipVehicle[1] = s_tLatestVehiData.usVehiKind;
+        arg_ipVehicle[2] = s_tLatestVehiData.usVehiRideTime;
         mutex_unlock(&s_tDataMutex);
     }
   
@@ -1706,9 +1709,10 @@ DBG(DBG_LV_INFO, "arg_iEnable %x\n", arg_iEnable);
     cmd.prm.ub_prm[2] = (g_acc_nv_param.trans_p.judge_time & 0xFF);
     cmd.prm.ub_prm[3] = ((g_acc_nv_param.trans_p.judge_time >> 8) & 0xFF);
     cmd.prm.ub_prm[4] = g_acc_nv_param.trans_p.calc_time;
-    cmd.prm.ub_prm[5] = g_acc_nv_param.trans_p.consecutive_num;
+    cmd.prm.ub_prm[5] = 0x14;
     cmd.prm.ub_prm[6] = 0x00;
     cmd.prm.ub_prm[7] = 0x00;
+    cmd.prm.ub_prm[8] = 0x01;
     
     ret = accsns_hostcmd(&cmd, &res, EXE_HOST_ALL);
     if((ACCSNS_RC_OK != ret) || (0 != res.err.udata16)) {
@@ -1716,25 +1720,21 @@ DBG(DBG_LV_ERROR, "vehicle Activate Error HC_ACC_SET_PEDO(-) err %x\n", res.err.
         return ACCSNS_RC_ERR;
     }
 
-    cmd.cmd.udata16 = 0x1054;
-
-    cmd.prm.ub_prm[0] = 0xB8;
-    cmd.prm.ub_prm[1] = 0x88;
-    cmd.prm.ub_prm[2] = 0xAC;
-    cmd.prm.ub_prm[3] = 0x0D;
-    cmd.prm.ub_prm[4] = 0x19;
-    cmd.prm.ub_prm[5] = 0x0E;
-    cmd.prm.ub_prm[6] = 0x1E;
-    cmd.prm.ub_prm[7] = 0x00;
-    cmd.prm.ub_prm[8] = 0xF6;
-    cmd.prm.ub_prm[9] = 0xFF;
-    cmd.prm.ub_prm[0x0a] = 0x0F;
-    cmd.prm.ub_prm[0x0b] = 0x04;
-
+    cmd.cmd.udata16 = 0x105b;
+    cmd.prm.ub_prm[0] = 0x00;
     ret = accsns_hostcmd(&cmd, &res, EXE_HOST_ALL);
     if((ACCSNS_RC_OK != ret) || (0 != res.err.udata16)) {
-DBG(DBG_LV_ERROR, "vehicle Activate Ctrl Error CMD:0x1054(%d) err %x\n",cmd.prm.ub_prm[0], res.err.udata16);
-        return ACCSNS_RC_ERR;
+DBG(DBG_LV_ERROR, "vehicle getdata Error 0x105b(0x00) err %x\n", res.err.udata16);
+    }
+    cmd.prm.ub_prm[0] = 0x02;
+    ret = accsns_hostcmd(&cmd, &res, EXE_HOST_ALL);
+    if((ACCSNS_RC_OK != ret) || (0 != res.err.udata16)) {
+DBG(DBG_LV_ERROR, "vehicle getdata Error 0x105b(0x02) err %x\n", res.err.udata16);
+    }
+    cmd.prm.ub_prm[0] = 0x04;
+    ret = accsns_hostcmd(&cmd, &res, EXE_HOST_ALL);
+    if((ACCSNS_RC_OK != ret) || (0 != res.err.udata16)) {
+DBG(DBG_LV_ERROR, "vehicle getdata Error 0x105b(0x04) err %x\n", res.err.udata16);
     }
 
 DBG_PRINT_IO(0xFF, ACCSNS_RC_OK);
@@ -1773,6 +1773,41 @@ DBG(DBG_LV_INFO, "vehicle getdata H/W : %x, %x \n", res.res.ub_res[0], res.res.u
     }else{
 DBG(DBG_LV_ERROR, "vehicle getdata Error HC_ACC_TRANS_INFO(-) err %x\n", res.err.udata16);
         return ACCSNS_RC_ERR;
+    }
+    
+DBG(DBG_LV_INFO, "vehicle statis : %x -> %x \n", s_tLatestVehiData.usVehiStatus, arg_Vehi->usVehiStatus);
+    if((s_tLatestVehiData.usVehiStatus == 0) && (arg_Vehi->usVehiStatus == 1)){
+        cmd.cmd.udata16 = 0x105a;
+        if(arg_Vehi->usVehiKind == 0){
+            cmd.prm.ub_prm[0] = 0x00;
+        }else{
+            cmd.prm.ub_prm[0] = 0x02;
+        }
+        ret = accsns_hostcmd(&cmd, &res, EXE_HOST_ALL);
+        if((ACCSNS_RC_OK == ret) && (0 == res.err.udata16)){
+            arg_Vehi->usVehiRideTime = res.res.ud_res[0];
+        }else{
+            arg_Vehi->usVehiRideTime = 0;
+DBG(DBG_LV_ERROR, "vehicle getdata Error 0x105a(%x) err %x\n", res.err.udata16, cmd.prm.ub_prm[0]);
+        }
+DBG(DBG_LV_INFO, "vehicle VehiRideTime : %x \n", arg_Vehi->usVehiRideTime);
+        
+    }else if((s_tLatestVehiData.usVehiStatus == 1) && (arg_Vehi->usVehiStatus == 0)){
+        arg_Vehi->usVehiRideTime = 0;
+        
+        cmd.cmd.udata16 = 0x105b;
+        cmd.prm.ub_prm[0] = 0x00;
+        ret = accsns_hostcmd(&cmd, &res, EXE_HOST_ALL);
+        if((ACCSNS_RC_OK != ret) || (0 != res.err.udata16)) {
+DBG(DBG_LV_ERROR, "vehicle getdata Error 0x105b(0x00) err %x\n", res.err.udata16);
+        }
+        cmd.prm.ub_prm[0] = 0x02;
+        ret = accsns_hostcmd(&cmd, &res, EXE_HOST_ALL);
+        if((ACCSNS_RC_OK != ret) || (0 != res.err.udata16)) {
+DBG(DBG_LV_ERROR, "vehicle getdata Error 0x105b(0x02) err %x\n", res.err.udata16);
+        }
+
+DBG(DBG_LV_INFO, "vehicle VehiRideTime : %x \n", arg_Vehi->usVehiRideTime);
     }
 
     
@@ -1961,9 +1996,10 @@ DBG(DBG_LV_DATA, "Pedo Data get . usStepCnt %x, usWalkTime %x, usCal %x, usBodyF
         ret = accsns_vehicle_getdata(&arg_Vehi);
         mutex_lock(&s_tDataMutex);
         if(ret == ACCSNS_RC_OK){
-            s_tLatestVehiData.usVehiStatus = arg_Vehi.usVehiStatus;
-            s_tLatestVehiData.usVehiKind   = arg_Vehi.usVehiKind;
-DBG(DBG_LV_DATA, "vehicle Data get . Status %x %x\n", s_tLatestVehiData.usVehiStatus, s_tLatestVehiData.usVehiKind);
+            s_tLatestVehiData.usVehiStatus   = arg_Vehi.usVehiStatus;
+            s_tLatestVehiData.usVehiKind     = arg_Vehi.usVehiKind;
+            s_tLatestVehiData.usVehiRideTime = arg_Vehi.usVehiRideTime;
+DBG(DBG_LV_DATA, "vehicle Data get . Status %x %x %x\n", s_tLatestVehiData.usVehiStatus, s_tLatestVehiData.usVehiKind, s_tLatestVehiData.usVehiRideTime);
         }else{
             memset(&s_tLatestVehiData, 0x00, sizeof(s_tLatestVehiData));
         }

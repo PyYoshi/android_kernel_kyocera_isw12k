@@ -1257,15 +1257,16 @@ static long alps_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
   }
   case ALPSIO_ACC_GET_VEHICLE_INFO:
   {
-    int32_t param[2];
+    int32_t param[3];
     IoCtlAccGetVehicleInfo stParam;
     ret = accsns_get_vehicle_data(param);
     if(ret) {
       printk( "error(accsns_dm_read) : alps_ioctl(cmd = ALPSIO_ACC_GET_VEHICLE_INFO)\n" );
       return accsns_err_check();
     }
-    stParam.m_iStatus = param[0];
-    stParam.m_iKind   = param[1];
+    stParam.m_iStatus   = param[0];
+    stParam.m_iKind     = param[1];
+    stParam.m_iRideTime = param[2];
     ret = copy_to_user(argp, &stParam, sizeof(IoCtlAccGetVehicleInfo));
     if (ret) {
       printk( "error(copy_from_user) : alps_ioctl(cmd = ALPSIO_ACC_GET_VEHICLE_INFO)\n" );
